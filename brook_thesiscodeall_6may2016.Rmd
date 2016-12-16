@@ -1,0 +1,704 @@
+---
+title: "BrookBeauliua Thesis Code - All lines"
+author: "Brook Beauliua"
+date: "Monday, May 6, 2015"
+output: html_document
+---
+# Packages (Install) ----
+```{r}
+install.packages("magrittr")
+install.packages("digest")
+install.packages("lubridate")
+install.packages("splitstackshape")
+install.packages("devtools") #Requires strawberry perl to be installed (mac and linux users already have this)
+```
+# Packages (Library) ----
+```{r}
+library(lubridate)
+library(splitstackshape)
+library(stringr)
+library(ggplot2)
+library(ggmap)
+library(rgdal)
+library(raster)
+library(dplyr)
+devtools::install_github("paleolimbot/exifr") #Requires devtools to be installed
+library(exifr)
+```
+# Ryan EXIF Code (Do not use) ----
+
+Ryan's sample code for extracting EXIF data is below as a base to start with. Note: The files used in the base code were for a specific sample set of folders. This sample no longer exists. The base code written by Ryan was specific to that example and will not run with another code set.
+
+```{r}
+install.packages("magrittr")
+install.packages("digest")
+install.packages("lubridate")
+install.packages("splitstackshape")
+library(lubridate)
+library(splitstackshape)
+```
+
+```{r}
+## Function to pull out the data from each image
+
+#Setting the working directory#
+setwd("C:/Users/Brook Beauliua/Desktop/BIOL5023/RCourse_FinalProject")
+
+#a single image
+print(system('exiftool/exiftool "CameraImages/Camera 4/Camera4_2July2013/EK000001.JPG"')) #exiftool/exiftool is because the program "exiftool" is in a folder called "exiftool in the working directory")
+
+```
+This chunck is Ryan setting up a function that can be applied to any folder/directory (x).
+```{r}
+install.packages("splitstackshape")
+grab.info=function(x){
+  require("splitstackshape")
+  dat<<-data.frame(system(paste("exiftool/exiftool -T -r -FileName -DateTimeOriginal -ExposureTime -FNumber -ISO", x),inter=T), #inter or intern??? What the hell does the -r do?
+                 stringsAsFactors = FALSE)
+  npic=NROW(dat)
+  dat=unlist(strsplit(dat[,1],"\t",fixed=TRUE))
+  dim(dat)=c(5,npic);dat=t(dat);dat=as.data.frame(dat)
+  dat=cSplit(dat, "V2", " ", stripWhite = FALSE)
+  setnames(dat,c("filename","etime","fnumber","ISO","date","time"))
+  dat$year <- as.numeric(sapply(strsplit(as.character(dat$date), ":") , "[", 1))
+  dat$month <- as.numeric(sapply(strsplit(as.character(dat$date), ":") , "[", 2))
+  dat$day <- as.numeric(sapply(strsplit(as.character(dat$date), ":") , "[", 3))
+  dat$hour <- as.numeric(sapply(strsplit(as.character(dat$time), ":") , "[", 1))
+  dat$minute <- as.numeric(sapply(strsplit(as.character(dat$time), ":") , "[", 2))
+  dat$second <- as.numeric(sapply(strsplit(as.character(dat$time), ":") , "[", 3))
+#   dat=as.data.frame(dat)
+#   dat=dat[,c("filename","etime","fnumber","ISO","date","year","month","day",
+#              "time","hour","minute","second")] #what is the use of this line and the one above?
+  return(dat) #Use of the return function?
+}
+```
+After that, he just demonstrates the output of a single subdirectory.
+```{r}
+
+test=grab.info("sampleimagesexif/Camera1_2July2013")
+View(test)
+```
+Built a new sample folder set using one small folder from Camera 1 and another from Camera 2.
+
+Setting up the working directory.
+```{r}
+setwd("C:/Users/Brook Beauliua/Documents/Thesis_RWork/ImageSortingRWork")
+getwd()
+```
+Pulling up one image's exif information.
+```{r}
+print(system('exiftool/exiftool "sampleimagesexif/Camera1_17July2014/EK000001.JPG"'))
+```
+Installing "splitstackshape" to investigate why Ryan used it.
+```{r}
+install.packages("splitstackshape")
+```
+Attempting to modify Ryan's Function:
+```{r}
+install.packages("magrittr")
+install.packages("digest")
+install.packages("lubridate")
+install.packages("splitstackshape")
+grab.info <- function(x){
+  require("splitstackshape")
+  require("lubridate")
+  dat <<- data.frame(system(paste("exiftool/exiftool -T -FileName -DateTimeOriginal", x),intern = T), 
+                 stringsAsFactors = FALSE)
+  npic <- NROW(dat)
+  dat <- unlist(strsplit(dat[,1],"\t",fixed = TRUE)) #\t is tab separation #Splits one column, but turns it into a wide format, unlists to separate remove structure (why?)
+  dim(dat) <- c(2,npic); dat <- t(dat); dat <- as.data.frame(dat) #Only 2 queried components of the EXIF information #Sets dimensions of wide format, transposes it to a long format, then converts to a dataframe
+  setnames(dat, c("filename", "datetime"))
+  dat$datetime <- ymd_hms(dat$datetime)
+  dat$year <- year(dat$datetime)
+  dat$month <- month(dat$datetime)
+  dat$day <- day(dat$datetime)
+  dat$hour <- hour(dat$datetime)
+  dat$minute <- minute(dat$datetime)
+  dat$second <- second(dat$datetime)
+  return(dat)
+  }
+```
+After that, he just demonstrates the output of a single subdirectory.
+```{r}
+test <- grab.info("sampleimagesexif/Camera1_2July2013")
+View(test)
+```
+Temporary Test Code:
+```{r}
+Test<- data.frame(system(paste("exiftool/exiftool -T -FileName -DateTimeOriginal", "sampleimagesexif/Camera2_19September2013"), intern=T), stringsAsFactors = FALSE) # -r?, inter vs. intern?
+
+npic <- NROW(Test) #Saving the number of pics as the number of rows in the original data frame
+
+Test <- unlist(strsplit(Test[, 1], "\t", fixed = TRUE)) #splits but transposes data, then unlist to separate into a single vector?
+nvar <- NCOL(Test)
+Test <- unlist(Test)
+dim(Test) <- c(2,npic);Test <- t(Test);Test <- as.data.frame(Test) #Specifying the dimensions, then transposing it back into a long format and converting to a data frame
+
+setnames(Test, c("filename", "datetime"))
+
+#Test <- cSplit(Test, "V2", " ", stripWhite = FALSE) #Splitting the date column into a date and time based on the " " in the column
+
+Test$datetime <- ymd_hms(Test$datetime)
+Test$year <- year(Test$datetime)
+Test$month <- month(Test$datetime)
+Test$day <- day(Test$datetime)
+Test$hour <- hour(Test$datetime)
+Test$minute <- minute(Test$datetime)
+Test$second <- second(Test$datetime)
+
+setnames(Test,c("filename","date","time")) #Date and time are moved to the end of the data frame, hence the 
+```
+Setting up a list of the directories:
+Code may need to be modified when testing code for nested loops?
+```{r}
+dir <- "C:/Users/Brook Beauliua/Documents/Thesis_RWork/ImageSortingRWork/sampleimagesexif"
+folders <- as.data.frame(list.dirs(dir, full.names = FALSE, recursive = FALSE)) #Check that inputs correct here
+```
+Ryan's base code for 'for' looping the exif function:
+```{r}
+imagedata=NULL
+m_files=dir("sampleimagesexif/") #master directory
+for (i in m_files){
+  wdir=paste("sampleimagesexif/",i,sep="") #need sep in there?
+  imageinfo=grab.info(wdir)
+  imageinfo$path=wdir
+  imagedata=rbind(imagedata,imageinfo)  
+}
+```
+Ryan's code works great for looping within the test folder. Just altering it to my style.
+```{r}
+exifdata <- NULL
+dir <- dir("sampleimagesexif/")
+for (i in dir){
+  wdir <- paste("sampleimagesexif/", i, sep = "")
+  exifinfo <- grab.info(wdir)
+  exifinfo$path <- wdir
+  exifdata <- rbind(exifdata, exifinfo)
+}
+```
+Works! Now to try and figure out how to nest this in another for loop for the next directory level up.
+```{r}
+main <- "exiflooptest/"
+exifdata <- NULL
+direct <- dir(main)
+for (i in direct){
+  print(i) #Prints inormation at point if fails at stage?
+  subdirect <- dir(paste(main, i, sep = ""))
+  for (j in subdirect){
+    print(j)
+  wdir <- paste(main, i, "/", j, sep = "")
+  exifinfo <- grab.info(wdir)
+  exifinfo$path <- wdir
+  exifdata <- rbind(exifdata, exifinfo)
+}
+}
+
+```
+Yay Trevor for figuring that out :P
+
+# Dewey EXIF Code (Test) ----
+
+Installing Dewey's "exifr" wrapper for exiftool (does one need exiftool first?)
+```{r}
+install.packages("devtools")
+devtools::install_github("paleolimbot/exifr")
+library(exifr)
+```
+
+Testing Dewey's package out with single images and single folders.
+```{r}
+setwd("C:/Users/Brook Beauliua/My Documents/Thesis_RWork/ImageSortingRWork")
+
+#single image
+exifr("sampleimagesexif/Camera1_2July2013/EK000001.JPG")
+Test <- as.data.frame(exifr("sampleimagesexif/Camera1_2July2013/EK000001.JPG"))
+
+#folder
+Test <- as.data.frame(exifr("sampleimagesexif/Camera1_2July2013"))
+
+#one directory level
+Test <- as.data.frame(exifr("sampleimagesexif", recursive = T))
+
+#two directory levels
+Test <- as.data.frame(exifr("exiflooptest", recursive = T))
+
+#testing using list.files as an external to exifr
+testlist <- list.files("exiflooptest", pattern=("*.JPG"), full.names = T, recursive = T)
+
+Test1 <- as.data.frame(exifr(list.files("exiflooptest", pattern=("*.JPG"), full.names = T, recursive = T)), recursive = F)
+
+Test2 <- as.data.frame(exifr(list.files("exiflooptest", full.names = T, recursive = T)), recursive = F)
+```
+
+# Test Code for building fault resistant exifr code ----
+This section is for testing if we can build upon Dewey's exifr package to create a chunk of code that can read in the EXIF data for all files (.txt and others included) through a listed directory of files. These files would be vetted by a check format to check and skip images already processed (if process becomes interrupted). Everything is to be nested in a print command to display outputs and status updates to ensure things are running smoothly.
+
+First is to build a list.files variable containing all files across all test folders (multiple directory levels).
+```{r}
+exiflooplistfiles <- (list.files("exiflooptest", all.files = FALSE, full.names = TRUE, recursive = TRUE, include.dirs = FALSE)) #Decided to leave directory rows out of the list (individual rows/sections for each directory as well as files). full.names must be TRUE in order for exifr to find the paths for each file.
+```
+The above contains all 483 files (including the test .txt) in the character string, suggests works. Also no isolated directory segments.
+
+Next is to get it working with the exifr package from Dewey
+```{r}
+exifloopexifr <- print(as.data.frame(exifr(exiflooplistfiles), quiet = F)) #Print is added to see the output.
+```
+
+Dewey's fixed code for re-startable exif data frame building.
+```{r, eval = F}
+allfiles <- list.files("exiflooptest", full.names=T, recursive = T)
+dfout <- NULL
+
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(allfiles)) {
+  chunkfiles <- allfiles[starti:min(starti+chunksize, length(allfiles))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(allfiles)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfout)) {
+      dfout <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfout$FileName)]
+      dfout <<- plyr::rbind.fill(dfout, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
+```
+
+Testing str_split_fixed to ensure works. There are a lot of columns to split, but we may decide to remove some columns before splitting anyways.
+```{r}
+exifloopdirectsplit <- as.data.frame(str_split_fixed(exifloopexifr$Directory, "/", 3))
+```
+Works, though no need for that to be split, when splitting actual data frame decide what want split.
+
+# Camera Image Spreadsheet ----
+
+The current document contains my R work to build maps and data frames for examining camera detections. This document could certainly stand to be cleaned up some more, but meets the immediate goal of showing the current code and resulting data frames. It should provide a means to examine if my code looks correct. I will need to review it to double check as well.
+
+Library:
+```{r}
+library(stringr)
+library(rgdal)
+library(raster)
+library(dplyr)
+library(lubridate)
+```
+Setting working directory.
+```{r}
+setwd("C:/Users/Brook Beauliua/My Documents/Thesis_RWork/CameraDataSheet")
+```
+Trevor's Code (Just a placeholder, you can ignore this part Trev)
+```{r, eval=FALSE}
+cams<-paste("Camera",seq(1,40), sep="")
+x<-list.files("..",full.names=F, recursive=T)
+#split<-strsplit(x, "/")
+#unlist(split)
+
+f<-as.data.frame(str_split_fixed(x, "/", 2))
+```
+Trevor's code above essentially creates the camera vector. Then pulls up the files in the listed directory, saves the name to a variable, then splits it on the chosen symbol and saves the split as a dataframe?
+
+I think that it might be easier to pull in the Station numbers and associated cameras in from the camera data spreadsheet.
+
+Building the data frame:
+Building data frame of images and directories
+Running some mock tests to try and get blank directories working. The mock folder 'Test' has four sub-folders "Test1 - Test4". "Test4" has one .txt file named "DummyFile". Going to try using list.files with different commands to try and generate a row for each "Test#" folder, even if the end directory is blank.
+```{r}
+testdir <- "C:/Users/Brook Beauliua/Desktop/Test"
+testdf <- as.data.frame(list.files(TestDir, all.files = TRUE, full.names = FALSE, recursive = TRUE))
+View(Test.df)
+```
+The above script generates no rows for blank ends to the directories.
+
+Let's try getting the script to include subdirectory names (for recursive listings).
+```{r}
+testdf <- as.data.frame(list.files(TestDir, all.files = TRUE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+testdf <- as.data.frame(list.files(TestDir, all.files = TRUE, full.names = FALSE, recursive = TRUE))
+```
+Trevor wanted a new data frame that adds a row for each directory end as well (include.dirs = TRUE). Repeating the above steps to splitting the directory again. All above chunks currently set to not evaluate upon knitting.
+
+First, loading in the data, with rows for each directory end.
+```{r}
+cameradir <- "Z:/Animal Passage Files/FieldCameras"
+cameraimagesdir <- as.data.frame(list.files(CameraDir, all.files = TRUE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+
+head(cameraimagesdir)
+```
+Old: I subtracted the number of rows in CameraImages from CameraImages.dir. There were 1282 extra rows, precisely the number of folders located in the directory. This is a good indication that the above script successfully added a row for each folder. Note that this includes rows for each level of directory. For example, there will be a "Camera1" row, and then a row for each Camera#_DMY directory.
+
+Next was removing the .DS_Stores again.
+```{r}
+names(cameraimagesdir) <- "directory"
+
+cameraimagesfiltered <- filter(cameraimagesdir, !grepl(".DS_Store", directory))
+
+head(cameraimagesfiltered)
+
+DS_Store <- filter(cameraimagesdir, grepl(".DS_Store", directory))
+#Just so that I can see all the rows removed#
+
+table(DS_Store)
+```
+The same number of rows were removed as for the previous creation of CameraImages.df_filtered. So likely the same result. DS_Store and DS_Store.dir appear identical.
+
+Splitting the data frame based on the "/" symbol.
+```{r}
+imagessplit<-as.data.frame(str_split_fixed(cameraimagesfiltered$directory, "/", 3))
+
+names(imagessplit) <- c("camera", "cameradate", "image")
+
+head(imagessplit)
+```
+The structure of split rows (when blanks present) appears correct.
+
+Double checked the "Camera" and "Camera_Date" columns using table(), hard to review all the entries in "Camera_Date", but nothing erroneous stood out.
+
+Now to remove the camera from the date column.
+```{r}
+datesplit <- as.data.frame(str_split_fixed(imagessplit$cameradate, "_", 2))
+
+head(datesplit)
+
+#Dropping the Camera column#
+datesplit$V1 <- NULL
+
+#Binding 'datesplit' to 'imagessplit'
+datebind <- cbind(imagessplit, datesplit)
+
+str(datebind)
+head(datebind)
+```
+Adding column names again and converting all to characters
+```{r}
+names(datebind) <- c("camera", "cameradate", "image", "date")
+datebind$camera <- as.character(datebind$camera)
+datebind$cameradate <- as.character(datebind$cameradate)
+datebind$image <- as.character(datebind$image)
+datebind$date <- as.character(datebind$date)
+
+str(datebind)
+head(datebind)
+```
+Quick check of the Date column of DateBind
+```{r}
+table(datebind$date)
+```
+Looks fine. I know there are three rows in the data set that should have no associated date (UnknownCamera7, UnknownCamera8, UnknownCamera13). Checking that the date column is blank for these rows.
+```{r, eval=FALSE}
+test <- filter(datebind, datebind$cameradate == "UnknownCamera7")
+
+head(test)
+```
+Looks good!
+
+Parsing the date.
+```{r}
+parseddate <- as.data.frame(dmy(datebind$date))
+names(parseddate) <- ("date")
+str(parseddate)
+
+datebind$date <- NULL
+images <- cbind(datebind, parseddate)
+head(images)
+```
+Now to split up the date into separate columns.
+```{r}
+datesplit <- as.data.frame(str_split_fixed(images$date, "-", 3))
+names(datesplit) <- c("year", "month", "day")
+str(datesplit)
+```
+Checking the columns in DateSplit data frame.
+```{r}
+table(datesplit$year)
+table(datesplit$month)
+table(datesplit$day)
+```
+Nothing that appears blatantly erroneous (all years in correct range, all months and days in the possible calender year).
+
+Binding DateSplit to Images.df
+```{r}
+images <- cbind(images, datesplit)
+head(images)
+str(images)
+```
+This data frame has the same number of rows as CameraImages.dir_filtered (when the .DS_Store) components were removed. Indicative that nothing was lost through this process.
+
+Objective at this point is to remove unnecessary rows (where cameradate is blank) as these are the directory ends for the camera level.
+```{r}
+images <- images[images$cameradate != "", ] #Essentially querying for all rows in images where images does not equal blank#
+head(imagesblank)
+
+blanks <- images[images$cameradate == "", ]
+```
+Exactly 40 rows in blanks, one for each camera folder.
+
+Our goal now is to query for blank image sections.
+```{r}
+table(images$cameradate)[which(table(images$cameradate) == 1)]
+
+empty <- rownames(table(images$cameradate)[which(table(images$cameradate) == 1)])
+```
+Most appear to be centred on certain folders most of the time, may be easiest to investigate manually.
+
+This doesn't include all empty ones though, some will have .txt or .rtf? in them. We want to see what these files say to see if they need to be removed or not. As were not confident about the specific format of each text file. It may be easy to query for all not ".JPG".
+
+```{r}
+wtf<- filter(images, !grepl(".JPG", image))
+#Why are there so many blanks in the table here?
+```
+Looking back at the images data frame, there remains rows where images is blank, yet there are .JPG rows in the associated cameradate folder. Personally, I want to remove all rows where image is blank but length of each unique cameradate is >1. There are some cases where texts also exist. Can we just remove first row from each group? Are the first rows always blank?
+
+We should start by trying to group the cameradate column of the images data frame and see if we can return the first row of each grouping?
+
+```{r}
+#Ryan's Code#
+blankscheck <- images[!duplicated(images$cameradate), ] #Just a quick check that the first line for each entry in cameradate is indeed blank in the image column. Comparing the the images data frame, the few rows checked from the blanscheck data frame were indeed blank in the rows from the images data frame. Should have worked.#
+
+subimages <- images[duplicated(images$cameradate),"cameradate"] #Returns a string of repeated cameradate entries (exluding ones not duplicated). This effectively removes all non duplicated cameradate entries.#
+
+subimages <- subset(images,cameradate %in% subimages) #Subset the dataframe to just those entries contained in the character string, which will exclude all rows that only exist once. appears larger that above line because it is including the first row for each cameradate entry where image is blank#
+
+trueempty <- subset(images, !(cameradate %in% subimages)) #running a reverse of the above line to see all folders that are empty# Manually checked a few of the indicated folders, were empty. Suggests working as intended.
+
+subimages <- subimages[!duplicated(subimages$cameradate),] #Pullout first entry of each duplicated cameradate, excluding single entries due to the above lines.#
+```
+Now that we have a data frame of the rows that are not desired in the images data frame. We need to remove them.
+```{r, eval= FALSE}
+#DO NOT RUN NORMALLY# images$index=row.names(images) # this will create a vector of row.names which corresponds to the subimages
+```
+```{r}
+row.names(images)=NULL # get rid of the confusing row names which are a vestiage of the old dataframe
+images <- images[which(!images$index %in% as.numeric(row.names(subimages))),] #Saying return all rows where images$index does not line up with row.names of subimages (essentially)#
+```
+1020 rows were removed, which is the amount in subimages. Also, the first several rows that were supposed to be removed are indeed removed, suggesting this worked correctly.
+
+Now to create some data frames where .JPG and "" are removed.
+```{r}
+noimages <- filter(images, !grepl(".JPG", image))
+
+noblanks <- filter(noimages, !grepl("", image)) #Not working#
+```
+Noticed that there were files that required removal (the older .DS_Store and other hidden files). These will need to be removed and the data frame rebuilt.
+
+Exporting the noblanks data frame to use as a basis for investigating texts and blank folders.
+```{r}
+write.csv(noimages, "blankfolders.csv")
+```
+Resolving the differences between FieldCamera folders in server and backup
+```{r}
+cameradirserv <- "Z:/Animal Passage Files/FieldCameras"
+cameradirbackup <- "W:/BBBackup/FieldCameras"
+
+imagesserv <- as.data.frame(list.files(cameradirserv, all.files = TRUE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+
+write.csv(imagesserv, file = "servercameraimages")
+
+imagesbackup <- as.data.frame(list.files(cameradirbackup, all.files = TRUE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+
+write.csv(imagesbackup, file = "backupcameraimages")
+```
+Changing the name of the columns to match
+```{r}
+names(imagesserv) <- "files"
+names(imagesbackup) <- "files"
+
+imagesservchar <- as.data.frame(as.character(imagesserv$files))
+Test <- setdiff(imagesserv, imagesbackup)
+a <- c(1, 2, 3, 4, 5)
+b <- c(3, 4, 5, 6, 7)
+setdiff(a,b)
+setdiff(b,a)
+
+imagesserv$files <- as.character(imagesserv$files)
+imagesbackup$files <- as.character(imagesbackup$files)
+
+out1<-setdiff(imagesserv$files,imagesbackup$files)
+out2<-setdiff(imagesbackup$files,imagesserv$files)
+
+out1 <- as.data.frame(out1)
+out2 <- as.data.frame(out2)
+
+rename(out2, "out2" = "directory")
+imagesbackupsplit <- as.data.frame(str_split_fixed(out2$out2, "/", 3))
+write.csv(imagesbackupsplit, file = "backupcheck")
+```
+Simple code to determine # of JPGs post a date. #Some of this may have been done already above, review later when start main R work again.#
+```{r}
+jpg <- filter(images, grepl(".JPG", image))
+jpgmar2015 <- filter(jpg, date < "2015-05-07")
+jpgmay2015 <- filter(jpg, date > "2014-04-10")
+```
+Going to clean the above, but want to get a data frame built for now.
+
+Used below code to build image data frame, without hidden files. Doing twice, once to include folder titles and once not to, just so I can test if have blank folders again.
+```{r}
+cameradir <- "Z:/Animal Passage Files/FieldCameras"
+imagesblanks <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+
+imagesnoblanks <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = FALSE))
+```
+
+# Camera EXIF Data Frame ----
+```{r}
+setwd("Z:/Animal Passage Files")
+
+camerafilelist <- (list.files("FieldCameras", all.files = FALSE, full.names = TRUE, recursive = TRUE, include.dirs = FALSE))
+
+camerafilesraw <- as.data.frame(exifr(camerafilelist, quiet = F))
+
+camerafilesraw <- list.files("FieldCameras", full.names=T, recursive = T)
+dfout <- NULL
+
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(camerafilesraw)) {
+  chunkfiles <- camerafilesraw[starti:min(starti+chunksize, length(camerafilesraw))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(camerafilesraw)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfout)) {
+      dfout <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfout$FileName)]
+      dfout <<- plyr::rbind.fill(dfout, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
+```
+
+# Temporary Test Slot ----
+```{r}
+#Testing the camera 8 folder:
+camera8filelisttest <- (list.files("FieldCameras/Camera8", all.files = FALSE, full.names = TRUE, recursive = TRUE, include.dirs = FALSE))
+
+camera8exiftest <- as.data.frame(exifr(camera8filelisttest, quiet = F))
+
+#Examining hidden files in camera folders
+camerafilelist <- as.data.frame(camerafilelist)
+
+camerafilelist$camerafilelist <- as.character(camerafilelist$camerafilelist)
+
+camerafilelisthidden <- (list.files("FieldCameras", all.files = TRUE, full.names = TRUE, recursive = TRUE, include.dirs = FALSE))
+
+camerafilelisthidden <- as.data.frame(camerafilelisthidden)
+
+camerafilelisthidden$camerafilelisthidden <- as.character(camerafilelisthidden$camerafilelisthidden)
+
+#Comparing the two lists:
+
+comparison1 <- anti_join(camerafilelist, camerafilelisthidden, by = c("camerafilelist" = "camerafilelisthidden"))
+
+comparison2 <- anti_join(camerafilelisthidden, camerafilelist, by = c("camerafilelisthidden" = "camerafilelist"))
+```
+# Map Creation Attemps ----
+Creating a map of stations over time
+This is on hold, can look at the current code if you want, all chunks are disabled.
+
+Library:
+```{r, eval=FALSE}
+library(ggplot2)
+library(ggmap)
+```
+Just reading in the data and doing some checks for erroneous entries.
+```{r, eval=FALSE}
+StationData <- read.delim("APP_CameraDataTrial2_18June2015.txt")
+
+str(StationData)
+head(StationData)
+tail(StationData)
+View(StationData) #Just to see the data frame#
+```
+For some reason there is an extra column added called 'X' It is empty, script to remove it below.
+```{r, eval = FALSE}
+table(StationData$Station)
+table(StationData$Camera)
+table(StationData$Inst_Day)
+table(StationData$Inst_Month)
+table(StationData$Inst_Year)
+table(StationData$Northing)
+table(StationData$Easting)
+table(StationData$Datum)
+table(StationData$UTM)
+table(StationData$Rem_Day)
+table(StationData$Rem_Month)
+table(StationData$Rem_Year)
+table(StationData$Camera_Removed)
+table(StationData$NewStation)
+table(StationData$Notes)
+```
+Fixing the format of the 'Notes' column
+```{r, eval=FALSE}
+StationData$Notes = as.character(StationData$Notes)
+```
+Removing the column 'X'
+```{r, eval=FALSE}
+StationData$X <- NULL
+
+head(StationData)
+```
+Creating a map:
+Trying to make the basic Easting and Northing map.
+```{r, eval=FALSE}
+ggplot(StationData)+
+  geom_point(aes(x = Easting, y = Northing), colour = "dodgerblue", size = 5, alpha = 5/10)+
+  geom_point(aes(x = Easting, y = Northing), shape = 1, size = 5, colour = "black", alpha = 5/10)+ #Adding a background black border, not sure about how much alpha to have#
+  geom_text(aes(x = Easting, y = Northing, label = Station), size = 3)+
+  xlab("Easting")+
+  ylab("Northing")
+```
+Saving the basic scatterplot as an image
+```{r, eval=FALSE}
+png(filename = "AllStations.png", width = 2000, height = 2000) #Specifying the type of image, name, and rough size#
+ggplot(StationData)+ #Have to run the plot again#
+  geom_point(aes(x = Easting, y = Northing), colour = "dodgerblue", size = 5, alpha = 5/10)+
+  geom_point(aes(x = Easting, y = Northing), shape = 1, size = 5, colour = "black", alpha = 5/10)+ #Adding a background black border, not sure about how much alpha to have#
+  geom_text(aes(x = Easting, y = Northing, label = Station), size = 3)+
+  xlab("Easting")+
+  ylab("Northing")
+dev.off() #Defining that graphic input is done?#
+```
+<br>Finding a suitable map to utilize.<br> (NOT USED)
+```{r, eval=FALSE}
+Antigonish_Site <- get_map(location = c(lon = -61.9526, lat = 45.6038), zoom = 18)
+#This line is querying google maps (you can specify some other sources in the code) for a raster at centred at the specified lat/long and the desired level of zoom. There are other ways to do this (see source included in email) but they are inherently more complex and my brain couldn't handle it :/.#
+```
+Combining to map (I can't get this step to work, I suspect because I am trying to utilize lat/long and UTM simultaneously) (NOT USED)
+```{r, eval = FALSE}
+ggmap(Antigonish_Site, extent = "normal")+
+  geom_point(aes(x = Easting, y = Northing), data = StationData, colour = "dodgerblue", size = 5, alpha = 5/10)+
+  geom_point(aes(x = Easting, y = Northing), data = StationData, shape = 1, size = 5, colour = "black", alpha = 5/10)+ #Adding a bacground black border, not sure about how much alpha to have#
+  geom_text(aes(x = Easting, y = Northing, label = Station), size = 3)+
+  xlab("Easting")+
+  ylab("Northing")
+```
+Tried to extract the points and try and load them to QGIS. I can produce an unlabelled file type using write.table or the two write.csv functions, but can't produce a readable csv. (NOT USED)
+```{r, eval = FALSE}
+Coordinates <- StationData[c("Station", "Easting", "Northing")]
+write.csv2(Coordinates, file = "AllStationCoordinates", col.names = NA, row.names = TRUE)
+```
+Uploading a topographic map of the Antigonish area. (NOT USED)
+```{r, eval=FALSE}
+#Loading the .tif into R#
+Antigonish_Topo <- raster("toporama_011f12_7_0_utm.tif")
+
+#Cropping the .tif#
+Crop_Extent <- c(581400, 581900, 5050380, 5050670)
+Antigonish_Crop <- crop(Antigonish_Topo, Crop_Extent)
+#Creating a colour palette for the raster#
+color_Topo <- terrain.colors(15)
+image(Antigonish_Topo, col=color_Topo)
+```
+Working on loading up some DNR shapefiles (vector based).
+```{r, eval=FALSE}
+
+```
+Questions about data frame format (Things Brook needs to consider):
+-What should be factors vs. characters?
+-Should stations be separated in region and number?
+-Do we want to keep or remove decimals from the easting and northing values?
+-Camera stations relating to observation plots.
