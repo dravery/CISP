@@ -1,3 +1,15 @@
 .Rproj.user
 .Rhistory
 .RData
+<<<<<<< HEAD
+=======
+.Ruserdata
+.html
+.Rproj
+
+#Image files
+.jpg
+.png
+.tiff
+.tif
+>>>>>>> origin/master
