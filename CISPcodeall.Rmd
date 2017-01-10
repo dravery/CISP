@@ -1,0 +1,49 @@
+---
+title: "CISPcodeall"
+author: "Brook Beauliua, Trevor Avery, Ryan Stanley"
+date: "January 10, 2017"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Packages (Install) ----
+```{r}
+install.packages("magrittr")
+install.packages("digest")
+install.packages("lubridate")
+install.packages("splitstackshape")
+install.packages("devtools") #Requires strawberry perl to be installed (mac and linux users already have this)
+```
+# Packages (Library) ----
+```{r}
+library(lubridate)
+library(splitstackshape)
+library(stringr)
+library(ggplot2)
+library(ggmap)
+library(rgdal)
+library(raster)
+library(dplyr)
+devtools::install_github("paleolimbot/exifr") #Requires devtools to be installed
+library(exifr)
+```
+#Directories ----
+```{r, eval = FALSE}
+imagedir<-"c:/Users/Stanleyr/Dropbox/CISP/"
+imagedir <- "c:/Users/BeauliauBrook/Dropbox/CISP/"
+imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
+#Placeholder lines for establishing individual directories for image analysis work
+
+ggsave(paste(imagedir,"imagename.png",""), ggplotimage)
+#Placeholder for Trevor's demonstration line, delete or modify later
+
+setwd("C:/Users/Brook Beauliua/My Documents/Thesis_RWork/CameraDataSheet")
+#Temporary location while I test code to include here, will change when we/I start working again from the files at Acadia.
+```
+#Dewey code for image data frame assembly
+```{r, eval = FALSE}
+```
+#Image data frame checks and cleaning code
