@@ -31,7 +31,9 @@ devtools::install_github("paleolimbot/exifr") #Requires devtools to be installed
 library(exifr)
 ```
 #Directories ----
-```{r, eval = FALSE}
+setwd("C:/Users/Brook Beauliua/My Documents/masterswork/Thesis_RWork/ImageSortingRWork")
+-Temporary location while I test code to include here, will change when we/I start working again from the files at Acadia.
+```{r}
 imagedir<-"c:/Users/Stanleyr/Dropbox/CISP/"
 imagedir <- "c:/Users/BeauliauBrook/Dropbox/CISP/"
 imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
@@ -39,11 +41,112 @@ imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
 
 ggsave(paste(imagedir,"imagename.png",""), ggplotimage)
 #Placeholder for Trevor's demonstration line, delete or modify later
-
-setwd("C:/Users/Brook Beauliua/My Documents/Thesis_RWork/CameraDataSheet")
-#Temporary location while I test code to include here, will change when we/I start working again from the files at Acadia.
 ```
+
 #Dewey code for image data frame assembly
 ```{r, eval = FALSE}
 ```
-#Image data frame checks and cleaning code
+#Image data frame building code
+```{r}
+cameradir <- "Z:/Animal Passage Files/FieldCameras"
+
+imageswdirectheads <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+#adds rows to represent each directory level
+
+images <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = FALSE))
+#main data frame with only images
+```
+
+#Splitting data frame directory levels
+```{r}
+names(images) <- "directory"
+
+imagessplit<-as.data.frame(str_split_fixed(images$directory, "/", 3))
+
+names(imagessplit) <- c("camera", "cameradate", "image")
+
+head(imagessplit)
+```
+#Isolating date from camera date
+```{r}
+datesplit <- as.data.frame(str_split_fixed(imagessplit$cameradate, "_", 2))
+
+head(datesplit)
+
+#Dropping the Camera column#
+datesplit$V1 <- NULL
+
+#Binding 'datesplit' to 'imagessplit'
+datebind <- cbind(imagessplit, datesplit)
+
+names(datebind) <- c("camera", "cameradate", "image", "date")
+datebind$camera <- as.character(datebind$camera)
+datebind$cameradate <- as.character(datebind$cameradate)
+datebind$image <- as.character(datebind$image)
+datebind$date <- as.character(datebind$date)
+
+parseddate <- as.data.frame(dmy(datebind$date))
+names(parseddate) <- ("date")
+
+datesplit <- as.data.frame(str_split_fixed(images$date, "-", 3))
+names(datesplit) <- c("year", "month", "day")
+
+images <- cbind(images, datesplit)
+```
+Side note: To check file types (see if .ds_stores exist or other files when intentionally not including hidden files (all.files = FALSE)), would it be logical to do a str_split based on "." to create a column of file types? Should we be creating that column anyways?
+
+Things to check: Is cameradate blank? (blanks <- images[images$cameradate == "", ]) Why use "[]" again?
+
+Querying for blank instances of images: (empty <- rownames(table(images$cameradate)[which(table(images$cameradate) == 1)]))
+
+Checking for non .jpgs (wtf<- filter(images, !grepl(".JPG", image)))
+
+Ryan code for detecting instances of blank entries (folders with no data). Not all of this is needed, but lots of it would be for retesting. Included all here till can parse it out.
+```{r}
+#Ryan's Code#
+blankscheck <- images[!duplicated(images$cameradate), ] #Just a quick check that the first line for each entry in cameradate is indeed blank in the image column. Comparing the the images data frame, the few rows checked from the blanscheck data frame were indeed blank in the rows from the images data frame. Should have worked.#
+
+subimages <- images[duplicated(images$cameradate),"cameradate"] #Returns a string of repeated cameradate entries (exluding ones not duplicated). This effectively removes all non duplicated cameradate entries.#
+
+subimages <- subset(images,cameradate %in% subimages) #Subset the dataframe to just those entries contained in the character string, which will exclude all rows that only exist once. appears larger that above line because it is including the first row for each cameradate entry where image is blank#
+
+trueempty <- subset(images, !(cameradate %in% subimages)) #running a reverse of the above line to see all folders that are empty# Manually checked a few of the indicated folders, were empty. Suggests working as intended.
+
+subimages <- subimages[!duplicated(subimages$cameradate),] #Pullout first entry of each duplicated cameradate, excluding single entries due to the above lines.#
+```
+Now that we have a data frame of the rows that are not desired in the images data frame. We need to remove them.
+```{r, eval= FALSE}
+#DO NOT RUN NORMALLY# images$index=row.names(images) # this will create a vector of row.names which corresponds to the subimages
+```
+```{r}
+row.names(images)=NULL # get rid of the confusing row names which are a vestiage of the old dataframe
+images <- images[which(!images$index %in% as.numeric(row.names(subimages))),] #Saying return all rows where images$index does not line up with row.names of subimages (essentially)#
+```
+1020 rows were removed, which is the amount in subimages. Also, the first several rows that were supposed to be removed are indeed removed, suggesting this worked correctly.
+
+Now to create some data frames where .JPG and "" are removed.
+```{r}
+noimages <- filter(images, !grepl(".JPG", image))
+
+noblanks <- filter(noimages, !grepl("", image)) #Not working#
+```
+Noticed that there were files that required removal (the older .DS_Store and other hidden files). These will need to be removed and the data frame rebuilt.
+
+Exporting the noblanks data frame to use as a basis for investigating texts and blank folders.
+```{r}
+write.csv(noimages, "blankfolders.csv")
+```
+Resolving the differences between FieldCamera folders in server and backup
+```{r}
+cameradirserv <- "Z:/Animal Passage Files/FieldCameras"
+cameradirbackup <- "W:/BBBackup/FieldCameras"
+
+imagesserv <- as.data.frame(list.files(cameradirserv, all.files = TRUE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+
+write.csv(imagesserv, file = "servercameraimages")
+
+imagesbackup <- as.data.frame(list.files(cameradirbackup, all.files = TRUE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+
+write.csv(imagesbackup, file = "backupcameraimages")
+```
+See "brook_thesiscodeall_6may2016.Rmd" for code to check differences between the image server and a backup file (not sure if completed) and some test code for examinining images pre/post a certain date.
