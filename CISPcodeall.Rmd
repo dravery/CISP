@@ -4,11 +4,10 @@ author: "Brook Beauliua, Trevor Avery, Ryan Stanley"
 date: "January 10, 2017"
 output: html_document
 ---
-
+Lines of code that Brook thinks may have value for the CISP work.
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 ```
-
 # Packages (Install) ----
 ```{r}
 install.packages("magrittr")
@@ -42,10 +41,6 @@ imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
 ggsave(paste(imagedir,"imagename.png",""), ggplotimage)
 #Placeholder for Trevor's demonstration line, delete or modify later
 ```
-
-#Dewey code for image data frame assembly
-```{r, eval = FALSE}
-```
 #Image data frame building code
 ```{r}
 cameradir <- "Z:/Animal Passage Files/FieldCameras"
@@ -56,7 +51,6 @@ imageswdirectheads <- as.data.frame(list.files(cameradir, all.files = FALSE, ful
 images <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = FALSE))
 #main data frame with only images
 ```
-
 #Splitting data frame directory levels
 ```{r}
 names(images) <- "directory"
@@ -93,14 +87,20 @@ names(datesplit) <- c("year", "month", "day")
 
 images <- cbind(images, datesplit)
 ```
-Side note: To check file types (see if .ds_stores exist or other files when intentionally not including hidden files (all.files = FALSE)), would it be logical to do a str_split based on "." to create a column of file types? Should we be creating that column anyways?
-
-Things to check: Is cameradate blank? (blanks <- images[images$cameradate == "", ]) Why use "[]" again?
-
-Querying for blank instances of images: (empty <- rownames(table(images$cameradate)[which(table(images$cameradate) == 1)]))
-
-Checking for non .jpgs (wtf<- filter(images, !grepl(".JPG", image)))
-
+#Possible code for checking for errors in image data frame ----
+#Is cameradate blank?
+```{r}
+blanks <- images[images$cameradate == "", ]
+```
+#Querying for instances of folders with no images
+```{r}
+empty <- rownames(table(images$cameradate)[which(table(images$cameradate) == 1)])
+```
+#Non .jpg checks
+```{r}
+wtf<- filter(images, !grepl(".JPG", image))
+```
+#Ryan code for detecting blank entries
 Ryan code for detecting instances of blank entries (folders with no data). Not all of this is needed, but lots of it would be for retesting. Included all here till can parse it out.
 ```{r}
 #Ryan's Code#
@@ -149,4 +149,37 @@ imagesbackup <- as.data.frame(list.files(cameradirbackup, all.files = TRUE, full
 
 write.csv(imagesbackup, file = "backupcameraimages")
 ```
-See "brook_thesiscodeall_6may2016.Rmd" for code to check differences between the image server and a backup file (not sure if completed) and some test code for examinining images pre/post a certain date.
+#Potentially useful things in "brook_thesiscodeall_6may2016.Rmd"
+-code to check differences between the image server and a backup file (not sure if completed)
+
+-Test code for examinining images pre/post a certain date.
+
+-Possible code using "anti_join" to check for hidden files.
+
+Side note: To check file types, would it be logical to do a str_split based on "." to create a column of file types? Should we be creating that column anyways?
+
+# Camera EXIF Data Frame ----
+See "brook_thesiscodeall_6may2016.Rmd" for Ryan's code for this stuff, in case we decide we wish to utilise that.
+```{r}
+setwd("Z:/Animal Passage Files")
+
+camerafilesraw <- list.files("FieldCameras", full.names=T, recursive = T)
+dfout <- NULL
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(camerafilesraw)) {
+  chunkfiles <- camerafilesraw[starti:min(starti+chunksize, length(camerafilesraw))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(camerafilesraw)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfout)) {
+      dfout <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfout$FileName)]
+      dfout <<- plyr::rbind.fill(dfout, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
+```
