@@ -1,3 +1,5 @@
+getwd()
+setwd("/media/Brook")
 ---
 title: "CISPcodeall"
 author: "Brook Beauliua, Trevor Avery, Ryan Stanley"
@@ -15,15 +17,14 @@ install.packages("digest")
 install.packages("lubridate")
 install.packages("splitstackshape")
 install.packages("devtools") #Requires strawberry perl to be installed (mac and linux users already have this)
-```
 # Packages (Library) ----
-```{r}
+``{r}
 library(lubridate)
 library(splitstackshape)
 library(stringr)
 library(ggplot2)
-library(ggmap)
-library(rgdal)
+library(ggmap) #I doubt we need this package anymore
+library(rgdal) #what would we have been using this package for? Used for projections (maps)?
 library(raster)
 library(dplyr)
 devtools::install_github("paleolimbot/exifr") #Requires devtools to be installed
@@ -45,12 +46,19 @@ ggsave(paste(imagedir,"imagename.png",""), ggplotimage)
 ```{r}
 cameradir <- "Z:/Animal Passage Files/FieldCameras"
 
+cameradirtest <- "/home/bbeauliua/Dropbox/CISP/imagesin"
+#Test delete
+
 imageswdirectheads <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
 #adds rows to represent each directory level
 
 images <- as.data.frame(list.files(cameradir, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = FALSE))
 #main data frame with only images
+
+images <- as.data.frame(list.files(cameradirtest, all.files = FALSE, full.names = FALSE, recursive = TRUE, include.dirs = TRUE))
+#Testdelete
 ```
+Above built the data frame, using two folder levels, showing folder levels as rows. Did not include hidden files.
 #Splitting data frame directory levels
 ```{r}
 names(images) <- "directory"
@@ -82,10 +90,10 @@ datebind$date <- as.character(datebind$date)
 parseddate <- as.data.frame(dmy(datebind$date))
 names(parseddate) <- ("date")
 
-datesplit <- as.data.frame(str_split_fixed(images$date, "-", 3))
+datesplit <- as.data.frame(str_split_fixed(parseddate$date, "-", 3))
 names(datesplit) <- c("year", "month", "day")
-
-images <- cbind(images, datesplit)
+mount -t cifs -o username=bbeauliua password=8T3^gam8ty //kraken.acadiau.ca/bbeauliua /media/Brook
+imagessplit <- cbind(imagessplit, datesplit)
 ```
 #Possible code for checking for errors in image data frame ----
 #Is cameradate blank?
@@ -162,8 +170,12 @@ Side note: To check file types, would it be logical to do a str_split based on "
 See "brook_thesiscodeall_6may2016.Rmd" for Ryan's code for this stuff, in case we decide we wish to utilise that.
 ```{r}
 setwd("Z:/Animal Passage Files")
+setwd("/media/Brook/Animal Passage Files/")
 
-camerafilesraw <- list.files("FieldCameras", full.names=T, recursive = T)
+camerafilesraw <- list.files("/media/Brook/Animal Passage Files/FieldCameras", full.names=T, recursive = T)
+
+write.table(camerafilesraw, "camerafilesraw")
+
 dfout <- NULL
 
 starti <- 1
@@ -183,3 +195,77 @@ while(starti <= length(camerafilesraw)) {
   }, error=function(err) {message("Error processing chunk prior to index ", starti)})
 }
 ```
+Hidden test
+```{r}
+camerafilesrawhidden <- list.files("/media/Brook/Animal Passage Files/FieldCameras", all.files=T, full.names=T, recursive = T)
+
+dfout1 <- NULL
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(camerafilesrawhidden)) {
+  chunkfiles <- camerafilesrawhidden[starti:min(starti+chunksize, length(camerafilesrawhidden))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(camerafilesrawhidden)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfout1)) {
+      dfout1 <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfout1$FileName)]
+      dfout1 <<- plyr::rbind.fill(dfout1, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
+```{r}
+#Code for determining camera survey time
+site$startdate <- as.Date(with(site, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
+Error in with(site, paste(inst_y, inst_m, inst_d, sep = "-")) : 
+object 'site' not found
+sites$startdate <- as.Date(with(sites, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
+View(sites)
+str(sites$startdate)
+Date[1:85], format: "2013-06-06" "2013-06-06" "2013-06-19" "2013-06-19" "2013-06-19" "2013-06-19" "2013-07-12" "2013-07-17"
+sites$enddate <- as.Date(with(sites, paste(camrem_y, camrem_m, camrem_d,sep="-")), "%Y-%m-%d")
+View(sites)
+sites$date_diff <- as.Date(as.character(sites$enddate), format="%Y/%m/%d")-
++     as.Date(as.character(sites$startdate), format="%Y/%m/%d")
+View(sites)
+sites$date_diff <- as.Date(sites$enddate, format="%Y/%m/%d")-
++     as.Date(sites$startdate, format="%Y/%m/%d")
+View(sites)
+sites$date_diff <- sites$date_diff + 1
+View(sites)
+```
+```
+Test Data Area
+
+Area for temporarily testing code, before correct portions are included above.
+```{r}
+#Building test image list
+testimagelist<- list.files("imagesin", all.files=F, full.names=T, recursive = T, include.dirs=T)
+testimagelisthidden<- list.files("imagesin", all.files = TRUE, full.names=T, recursive = T, include.dirs=T) #includes hidden files
+
+testimagelistdf <- as.data.frame(testimagelist)
+testimagelisthiddendf <- as.data.frame(testimagelisthidden)
+
+hiddenfiles <- anti_join(testimagelisthiddendf, testimagelistdf) #comparing data frames to check for hidden row
+
+dfouttest <- NULL
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(testimagelist)) {
+  chunkfiles <- testimagelist[starti:min(starti+chunksize, length(testimagelist))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(testimagelist)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfouttest)) {
+      dfouttest <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfouttest$FileName)]
+      dfouttest <<- plyr::rbind.fill(dfouttest, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
