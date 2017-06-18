@@ -68,50 +68,93 @@ sites$remdatefill <- sites$remdate
 sites$remdatefill[is.na(sites$remdatefill)] <- "2015-05-07"
 
 ###Calculating date difference between camera install and removal times
-sites$datediff <- as.integer(difftime(sites$remdatefill, sites$instdate, units = "days"))
+sites$daysdeployed <- as.integer(difftime(sites$remdatefill, sites$instdate, units = "days"))
 
 ###Calculating total days cameras were deployed (across all sites)
 sites <- sites %>%
-  mutate(daysdeployed_total = sum(datediff))
+  mutate(daysdeployed_total = sum(daysdeployed)) #unnecessary line?
 
 ##Deployment times, means, stdev, range by camera, site, total
 ###Deployment periods per site and per site per camera
-groupedsites <- sites %>%
+propsites <- sites %>%
   group_by(site, cam) %>%
-  summarise(daysdeployed_cam = sum(datediff)) %>%
+  summarise(daysdeployed_cam = sum(daysdeployed)) %>%
   mutate(daysdeployed_site = sum(daysdeployed_cam)) %>%
-  mutate(daysdeployed_total = sum(sites$datediff)) %>%
+  mutate(daysdeployed_total = sum(sites$daysdeployed)) %>%
   mutate(daysdeployed_camsite_percent = daysdeployed_cam/daysdeployed_site*100) %>%
   mutate(daysdeployed_camtotal_percent = daysdeployed_cam/daysdeployed_total*100) %>%
-  mutate(daysdeployed_sitetotal = daysdeployed_site/daysdeployed_total*100)%>%
+  mutate(daysdeployed_sitetotal_percent = daysdeployed_site/daysdeployed_total*100)%>%
   data.frame() #per camera and per site proportions of deployment total
 
 ###Deployment ranges, mean, stdev
-statswithinsites <- groupedsites %>%
+statswithinsites <- propsites %>%
   group_by(site) %>%
   summarise(cammin = min(daysdeployed_cam), cammax = max(daysdeployed_cam), cammean = mean(daysdeployed_cam), camsd = sd(daysdeployed_cam)) %>%
   data.frame()
 
-totaltable <- groupedsites %>%
+totaltable <- propsites %>%
   select(site, daysdeployed_site) %>% 
   data.frame()
 
-totaltable <- totaltable[!duplicated(totaltable), ]
+totaltable <- totaltable[!duplicated(totaltable), ] #row numbers are awkward
 
 statsbetweensites <- totaltable %>%
   summarise(sitemin = min(daysdeployed_site), sitemax = max(daysdeployed_site), sitemean = mean(daysdeployed_site), sitesd = sd(daysdeployed_site)) %>%
   data.frame() #desire range() instead?
 
 ##Deployment times, means, stdev, range by location, purpose, streamside
-groupedsitestest <- sites %>%
-  select(site, cam, location, purpose, streamside, datediff, daysdeployed_total)
+###Creating necessary data frame of sites, daysdeployed per site, and total daysdeployed
+groupedsites <- sites %>%
+  select(site, cam, location, purpose, streamside, daysdeployed, daysdeployed_total)
 
-groupedsitestest <- groupedsitestest %>%
-  group_by(site, cam) %>%
-  select(site, cam, location, purpose, streamside, datediff, daysdeployed_total)
-  summarise(daysdeployed_cam = sum(datediff)) %>%
-  mutate(daysdeployed_site = sum(daysdeployed_cam))
-  #######Trying to sum dateddiff by site, so that I can then group_by later for summary statistics by location, purpose, streamside, how do I preserve those columns?
+groupedsites <- groupedsites %>%
+  group_by(site) %>%
+  mutate(daysdeployed_site = sum(daysdeployed)) %>%
+  data.frame()
+  
+groupedsites <- groupedsites[!duplicated(groupedsites$site), ]
+groupedsites$cam <- NULL
+groupedsites$daysdeployed <- NULL
+groupedsites <-groupedsites[, c("site", "location", "purpose", "streamside", "daysdeployed_site", "daysdeployed_total")]
+####The above is a crude method of accomplishing what I needed, if anyone has a better way of doing it let me know
+
+###Deployment proportion for site per location, purpose, streamside and per location, purpose, streamside
+locationprop <- groupedsites %>%
+  group_by(location) %>%
+  mutate(daysdeployed_location = sum(daysdeployed_site)) %>%
+  mutate(daysdeployed_camlocation_percent = daysdeployed_site/daysdeployed_location*100) %>%
+  mutate(daysdeployed_locationtotal_percent = daysdeployed_location/daysdeployed_total*100) %>%
+  data.frame()
+
+purposeprop <- groupedsites %>%
+  group_by(purpose) %>%
+  mutate(daysdeployed_purpose = sum(daysdeployed_site)) %>%
+  mutate(daysdeployed_campurpose_percent = daysdeployed_site/daysdeployed_purpose*100) %>%
+  mutate(daysdeployed_purposetotal_percent = daysdeployed_purpose/daysdeployed_total*100) %>%
+  data.frame()
+
+streamsideprop <- groupedsites %>%
+  group_by(streamside) %>%
+  mutate(daysdeployed_streamside= sum(daysdeployed_site)) %>%
+  mutate(daysdeployed_camstreamside_percent = daysdeployed_site/daysdeployed_streamside*100) %>%
+  mutate(daysdeployed_streamsidetotal_percent = daysdeployed_streamside/daysdeployed_total*100) %>%
+  data.frame()
+
+###Deployment sum, mean, sd, range per location, purpose, streamside
+locationstats <- groupedsites %>%
+  group_by(location) %>%
+  summarise(daysdeployed_location = sum(daysdeployed_site), locationmin = min(daysdeployed_site), locationmax = max(daysdeployed_site), locationmean = mean(daysdeployed_site), locationsd = sd(daysdeployed_site)) %>%
+  data.frame()
+
+purposestats <- groupedsites %>%
+  group_by(purpose) %>%
+  summarise(daysdeployed_purpose = sum(daysdeployed_site), purposemin = min(daysdeployed_site), purposemax = max(daysdeployed_site), purposemean = mean(daysdeployed_site), purposesd = sd(daysdeployed_site)) %>%
+  data.frame()
+
+streamsidestats <- groupedsites %>%
+  group_by(streamside) %>%
+  summarise(daysdeployed_streamside = sum(daysdeployed_site), streamsidemin = min(daysdeployed_site), streamsidemax = max(daysdeployed_site), streamsidemean = mean(daysdeployed_site), streamsidesd = sd(daysdeployed_site)) %>%
+  data.frame()
 
 #Image Data Frame building code ----
 ##Initial image data frame list
