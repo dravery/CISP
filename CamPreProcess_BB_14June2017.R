@@ -24,6 +24,95 @@ imagedir<-"c:/Users/Stanleyr/Dropbox/CISP/"
 imagedir <- "c:/Users/BeauliauBrook/Dropbox/CISP/"
 imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
 
+#Important Tutorials
+####http://genomicsclass.github.io/book/pages/dplyr_tutorial.html
+
+#Site Data Frame Upload and Summary Statistics
+sites <- read.csv("CamSites.csv", stringsAsFactors = F)
+
+##General Checks
+str(sites)
+table(sites$site)
+table(sites$cam)
+table(sites$lat)
+table(sites$long)
+table(sites$northing)
+table(sites$easting)
+table(sites$datum)
+table(sites$utm)
+table(sites$inst_d)
+table(sites$inst_m)
+table(sites$inst_y)
+table(sites$camrem_d)
+table(sites$camrem_m)
+table(sites$camrem_y)
+table(sites$camrem)
+table(sites$siterem)
+table(sites$location)
+table(sites$purpose)
+table(sites$streamside)
+
+#with(sites, table(c(cam, lat, long, northing, easting, datum, utm, inst_d, inst_m, inst_y, camrem_d, camrem_m, camrem_y, camrem, sitenew, siterem)))
+
+##Initial survey period preparations
+###Merging install and removal dates and converting to date format
+sites$instdate <- as.Date(with(sites, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
+str(sites$instdate)
+
+sites$remdate <- as.Date(with(sites, paste(camrem_y, camrem_m, camrem_d,sep="-")), "%Y-%m-%d")
+str(sites$remdate)
+
+###Duplicating removal date column and filling NAs with cut off date
+sites$remdatefill <- sites$remdate
+
+sites$remdatefill[is.na(sites$remdatefill)] <- "2015-05-07"
+
+###Calculating date difference between camera install and removal times
+sites$datediff <- as.integer(difftime(sites$remdatefill, sites$instdate, units = "days"))
+
+###Calculating total days cameras were deployed (across all sites)
+sites <- sites %>%
+  mutate(daysdeployed_total = sum(datediff))
+
+##Deployment times, means, stdev, range by camera, site, total
+###Deployment periods per site and per site per camera
+groupedsites <- sites %>%
+  group_by(site, cam) %>%
+  summarise(daysdeployed_cam = sum(datediff)) %>%
+  mutate(daysdeployed_site = sum(daysdeployed_cam)) %>%
+  mutate(daysdeployed_total = sum(sites$datediff)) %>%
+  mutate(daysdeployed_camsite_percent = daysdeployed_cam/daysdeployed_site*100) %>%
+  mutate(daysdeployed_camtotal_percent = daysdeployed_cam/daysdeployed_total*100) %>%
+  mutate(daysdeployed_sitetotal = daysdeployed_site/daysdeployed_total*100)%>%
+  data.frame() #per camera and per site proportions of deployment total
+
+###Deployment ranges, mean, stdev
+statswithinsites <- groupedsites %>%
+  group_by(site) %>%
+  summarise(cammin = min(daysdeployed_cam), cammax = max(daysdeployed_cam), cammean = mean(daysdeployed_cam), camsd = sd(daysdeployed_cam)) %>%
+  data.frame()
+
+totaltable <- groupedsites %>%
+  select(site, daysdeployed_site) %>% 
+  data.frame()
+
+totaltable <- totaltable[!duplicated(totaltable), ]
+
+statsbetweensites <- totaltable %>%
+  summarise(sitemin = min(daysdeployed_site), sitemax = max(daysdeployed_site), sitemean = mean(daysdeployed_site), sitesd = sd(daysdeployed_site)) %>%
+  data.frame() #desire range() instead?
+
+##Deployment times, means, stdev, range by location, purpose, streamside
+groupedsitestest <- sites %>%
+  select(site, cam, location, purpose, streamside, datediff, daysdeployed_total)
+
+groupedsitestest <- groupedsitestest %>%
+  group_by(site, cam) %>%
+  select(site, cam, location, purpose, streamside, datediff, daysdeployed_total)
+  summarise(daysdeployed_cam = sum(datediff)) %>%
+  mutate(daysdeployed_site = sum(daysdeployed_cam))
+  #######Trying to sum dateddiff by site, so that I can then group_by later for summary statistics by location, purpose, streamside, how do I preserve those columns?
+
 #Image Data Frame building code ----
 ##Initial image data frame list
 
@@ -69,7 +158,7 @@ empty <- rownames(table(images$cameradate)[which(table(images$cameradate) == 1)]
 wtf<- filter(images, !grepl(".JPG", image))
 
 #Ryan code for detecting blank entries
-Ryan code for detecting instances of blank entries (folders with no data). Not all of this is needed, but lots of it would be for retesting. Included all here till can parse it out.
+####Ryan code for detecting instances of blank entries (folders with no data). Not all of this is needed, but lots of it would be for retesting. Included all here till can parse it out.
 #Ryan's Code#
 blankscheck <- images[!duplicated(images$cameradate), ] #Just a quick check that the first line for each entry in cameradate is indeed blank in the image column. Comparing the the images data frame, the few rows checked from the blanscheck data frame were indeed blank in the rows from the images data frame. Should have worked.#
 
@@ -80,7 +169,7 @@ subimages <- subset(images,cameradate %in% subimages) #Subset the dataframe to j
 trueempty <- subset(images, !(cameradate %in% subimages)) #running a reverse of the above line to see all folders that are empty# Manually checked a few of the indicated folders, were empty. Suggests working as intended.
 
 subimages <- subimages[!duplicated(subimages$cameradate),] #Pullout first entry of each duplicated cameradate, excluding single entries due to the above lines.#
-```
+
 Now that we have a data frame of the rows that are not desired in the images data frame. We need to remove them.
 ```{r, eval= FALSE}
 #DO NOT RUN NORMALLY# images$index=row.names(images) # this will create a vector of row.names which corresponds to the subimages
