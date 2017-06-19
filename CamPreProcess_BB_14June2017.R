@@ -24,10 +24,10 @@ imagedir<-"c:/Users/Stanleyr/Dropbox/CISP/"
 imagedir <- "c:/Users/BeauliauBrook/Dropbox/CISP/"
 imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
 
-#Important Tutorials
+#Important Tutorials ----
 ####http://genomicsclass.github.io/book/pages/dplyr_tutorial.html
 
-#Site Data Frame Upload and Summary Statistics
+#Site Data Frame Upload and Summary Statistics ----
 sites <- read.csv("CamSites.csv", stringsAsFactors = F)
 
 ##General Checks
@@ -156,6 +156,52 @@ streamsidestats <- groupedsites %>%
   summarise(daysdeployed_streamside = sum(daysdeployed_site), streamsidemin = min(daysdeployed_site), streamsidemax = max(daysdeployed_site), streamsidemean = mean(daysdeployed_site), streamsidesd = sd(daysdeployed_site)) %>%
   data.frame()
 
+#Image Data Frame Test Code ----
+
+setwd("~/Dropbox/CISP")
+
+##Checking for hidden files
+###Build df with hidden and without
+baseimagedftest <- as.data.frame((list.files("imagesin", full.names = T, recursive = T)))
+names(baseimagedftest) <- "x"
+baseimagedftest$x <- as.character(baseimagedftest$x)
+
+baseimagedftesthidden <- as.data.frame(list.files("imagesin", all.files = T, full.names = T, recursive = T))
+names(baseimagedftesthidden) <- "x"
+baseimagedftesthidden$x <- as.character(baseimagedftesthidden$x)
+baseimagedftesthidden <- as.data.frame(as.character(baseimagedftesthidden$x))
+
+###Compare hidden vs no hidden to see if only difference
+hiddentest <- anti_join(baseimagedftesthidden, baseimagedftest) ####Only difference is .test.txt, confirm produced image data frame has no hidden files with below line
+
+hiddentest <- filter(baseimagedftesthidden, grepl("/.", x, fixed=TRUE)) #USE TO CHECK MAIN IMAGE DATA FRAME
+
+###Build exif data using image list
+baseimagedftestdir <- (list.files("imagesin", full.names = T,recursive = T, include.dirs = T))
+
+dfout <- NULL
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(baseimagedftestdir)) {
+  chunkfiles <- baseimagedftestdir[starti:min(starti+chunksize, length(baseimagedftestdir))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(baseimagedftestdir)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfout)) {
+      dfout <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfout$FileName)]
+      dfout <<- plyr::rbind.fill(dfout, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
+
+imageexifdftestdir <- dfout ####No errors occurred during task, however, some errors occur when running for the actual image data frame, investigate
+
+str(imageexifdftestdir)
+
 #Image Data Frame building code ----
 ##Initial image data frame list
 
@@ -278,63 +324,9 @@ imagessplit <- cbind(imagessplit, datesplit)
 ggsave(paste(imagedir,"imagename.png",""), ggplotimage)
 #Placeholder for Trevor's demonstration line, delete or modify later
 
-##Code for determining camera survey time
-site$startdate <- as.Date(with(site, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
-Error in with(site, paste(inst_y, inst_m, inst_d, sep = "-")) : 
-  object 'site' not found
-sites$startdate <- as.Date(with(sites, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
-View(sites)
-str(sites$startdate)
-Date[1:85], format: "2013-06-06" "2013-06-06" "2013-06-19" "2013-06-19" "2013-06-19" "2013-06-19" "2013-07-12" "2013-07-17"
-sites$enddate <- as.Date(with(sites, paste(camrem_y, camrem_m, camrem_d,sep="-")), "%Y-%m-%d")
-View(sites)
-sites$date_diff <- as.Date(as.character(sites$enddate), format="%Y/%m/%d")-
-  +     as.Date(as.character(sites$startdate), format="%Y/%m/%d")
-View(sites)
-sites$date_diff <- as.Date(sites$enddate, format="%Y/%m/%d")-
-  +     as.Date(sites$startdate, format="%Y/%m/%d")
-View(sites)
-sites$date_diff <- sites$date_diff + 1
-View(sites)
-
 #Potentially useful things in "brook_thesiscodeall_6may2016.Rmd"
 -code to check differences between the image server and a backup file (not sure if completed)
 
 -Test code for examinining images pre/post a certain date.
 
 Side note: To check file types, would it be logical to do a str_split based on "." to create a column of file types? Should we be creating that column anyways?
-
-
-#Test Data Area
-####Area for temporarily testing code, before correct portions are included above.
-##Building test image list
-testimagelist<- list.files("imagesin", all.files=F, full.names=T, recursive = T, include.dirs=T)
-testimagelisthidden<- list.files("imagesin", all.files = TRUE, full.names=T, recursive = T, include.dirs=T) #includes hidden files
-
-testimagelistdf <- as.data.frame(testimagelist)
-testimagelisthiddendf <- as.data.frame(testimagelisthidden)
-
-names(testimagelistdf) <- 'x'
-names(testimagelisthidden) <- 'x'
-
-hiddenfiles <- anti_join(testimagelisthiddendf$x, testimagelistdf$x) #comparing data frames to check for hidden row
-
-dfouttest <- NULL
-
-starti <- 1
-chunksize <- 200
-
-while(starti <= length(testimagelist)) {
-  chunkfiles <- testimagelist[starti:min(starti+chunksize, length(testimagelist))]
-  message("Processing chunk ", starti, ":", min(starti+chunksize, length(testimagelist)))
-  starti <- starti + chunksize + 1
-  tryCatch({
-    if(is.null(dfouttest)) {
-      dfouttest <- exifr(chunkfiles, quiet=F)
-    } else {
-      chunkfiles <- chunkfiles[!(chunkfiles %in% dfouttest$FileName)]
-      dfouttest <<- plyr::rbind.fill(dfouttest, exifr(chunkfiles, quiet=F))
-    }
-  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
-}
-
