@@ -198,9 +198,21 @@ while(starti <= length(baseimagedftestdir)) {
   }, error=function(err) {message("Error processing chunk prior to index ", starti)})
 }
 
-imageexifdftestdir <- dfout ####No errors occurred during task, however, some errors occur when running for the actual image data frame, investigate
+imageexifdftestdir <- dfout ####Note errors when running dfout
 
 str(imageexifdftestdir)
+
+###Tests for 0kb files, .txt files, other file types
+table(imageexifdftestdir$FileSize)
+test <- filter(imageexifdftestdir, FileSize <= 41)
+table(imageexifdftestdir$Error)
+test <- filter(imageexifdftestdir, Error != "")
+table(imageexifdftestdir$FileType)
+test <- filter(imageexifdftestdir, FileType == "") ####Few different strategies of trying to detect other issues
+
+###Tests for rows with no collection date
+table(imageexifdftestdir$DateTimeOriginal)
+test <- filter(imageexifdftestdir, DateTimeOriginal == "")
 
 #Image Data Frame building code ----
 ##Initial image data frame list
