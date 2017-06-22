@@ -5,9 +5,11 @@ install.packages("magrittr")
 install.packages("digest")
 install.packages("lubridate")
 install.packages("splitstackshape")
+install.packages("data.table")
 install.packages("devtools") #Requires strawberry perl to be installed (mac and linux users already have this)
 
 # Packages (Library) ----
+library(data.table)
 library(lubridate)
 library(splitstackshape)
 library(stringr)
@@ -28,9 +30,10 @@ imagedir <- "c:/Users/Tavery44/Dropbox/CISP?"
 ####http://genomicsclass.github.io/book/pages/dplyr_tutorial.html
 
 #Site Data Frame Upload and Summary Statistics ----
+#setwd("~/CISP")
 sites <- read.csv("CamSites.csv", stringsAsFactors = F)
 
-##General Checks
+ ##General Checks
 str(sites)
 table(sites$site)
 table(sites$cam)
@@ -50,7 +53,9 @@ table(sites$camrem)
 table(sites$siterem)
 table(sites$location)
 table(sites$purpose)
-table(sites$streamside)
+table(sites$streamside)test<-testblank %>%
+  filter(date != "", image == "") %>%
+  data.frame()
 
 #with(sites, table(c(cam, lat, long, northing, easting, datum, utm, inst_d, inst_m, inst_y, camrem_d, camrem_m, camrem_y, camrem, sitenew, siterem)))
 
@@ -176,6 +181,39 @@ hiddentest <- anti_join(baseimagedftesthidden, baseimagedftest) ####Only differe
 
 hiddentest <- filter(baseimagedftesthidden, grepl("/.", x, fixed=TRUE)) #USE TO CHECK MAIN IMAGE DATA FRAME
 
+###Test for blank folders
+####Build data frame showing image list with directory rows, split camera date out of it
+baseimagedftestblank <- as.data.frame(list.files("imagesin", full.names = T, recursive = T, include.dirs = T))
+names(baseimagedftestblank) <- "directory"
+
+testblanksplit <- as.data.frame(str_split_fixed(baseimagedftestblank$directory, "/", 4))
+names(testblanksplit) <- c("containing", "camera", "cameradate", "image")
+testblankdate <- as.data.frame(str_split_fixed(testblanksplit$cameradate, "_", 2))
+testblankdate$V1 <- NULL
+
+testblank <- cbind(testblanksplit, testblankdate)
+names(testblank) <- c("containing", "camera", "cameradate", "image", "date")
+
+testblank$camera <- as.character(testblank$camera)
+testblank$cameradate <- as.character(testblank$cameradate)
+testblank$image <- as.character(testblank$image)
+testblank$date <- as.character(testblank$date)
+
+####Attempts to check for blank folders
+#####Head row of each folder
+folderheads <- testblank %>%
+  filter(date != "", image == "") %>%
+  data.frame()
+
+#####Blank folder check
+folderrowssum <- testblank %>%
+  group_by(camera,cameradate) %>%
+  summarise(nimage=n()) %>%
+  data.frame()
+
+blankfolders <- folderrowssum %>%
+  filter(cameradate != "", nimage == 1)
+
 ###Build exif data using image list
 baseimagedftestdir <- (list.files("imagesin", full.names = T,recursive = T, include.dirs = T))
 
@@ -214,6 +252,100 @@ test <- filter(imageexifdftestdir, FileType == "") ####Few different strategies 
 table(imageexifdftestdir$DateTimeOriginal)
 test <- filter(imageexifdftestdir, DateTimeOriginal == "")
 
+###Investigating exifr errors
+####Only errors if non-images ran through
+####Only chunks with non-images showed warning messages
+####Date extraction from images post non-image lines are fine (sometiems off by 1 second), assume no added issues having non .jpg rows
+
+#Create image data frame and attempt to join with site data frame
+##Build image data frame again
+rm(list = ls())
+
+imagedftest <- (list.files("imagesin", full.names = T,recursive = T))
+
+dfout <- NULL
+
+starti <- 1
+chunksize <- 200
+
+while(starti <= length(imagedftest)) {
+  chunkfiles <- imagedftest[starti:min(starti+chunksize, length(imagedftest))]
+  message("Processing chunk ", starti, ":", min(starti+chunksize, length(imagedftest)))
+  starti <- starti + chunksize + 1
+  tryCatch({
+    if(is.null(dfout)) {
+      dfout <- exifr(chunkfiles, quiet=F)
+    } else {
+      chunkfiles <- chunkfiles[!(chunkfiles %in% dfout$FileName)]
+      dfout <<- plyr::rbind.fill(dfout, exifr(chunkfiles, quiet=F))
+    }
+  }, error=function(err) {message("Error processing chunk prior to index ", starti)})
+}
+
+imagedftest <- dfout
+
+str(imagedftest)
+
+imagedftest <- imagedftest[, c("Directory", "FileName", "DateTimeOriginal")] ####Removing some unneccessary columns during initial tests
+
+###Modify datetimeorignal to be posixct
+imagedftest$DateTimeOriginal<-ymd_hms(imagedftest$DateTimeOriginal, tz="America/Halifax")
+######Do we need to change file names? Do we need to reorder columns? Do we need to reorder rows?
+#####Split directory into camera and folder date and add back in
+imagedftestfolder <- as.data.frame(str_split_fixed(imagedftest$Directory, "/", 3))
+table(imagedftest$Directory)
+table(imagedftestfolder$V3) #####Check that the two columns match
+imagedftestfolderdate <- as.data.frame(str_split_fixed(imagedftestfolder$V3, "_", 2))
+table(imagedftestfolder$V3)
+table(imagedftestfolderdate$V2)
+names(imagedftestfolderdate) <- c("cam", "folderdate")
+imagedftest <- cbind(imagedftest, imagedftestfolderdate)
+imagedftest$Directory <- NULL
+
+
+#####Fix cam column
+camcolfix <- as.data.frame(str_split_fixed(imagedftest$cam, "Camera", 2))
+camcolfix$V1 <- NULL
+names(camcolfix) <- "camtest"
+imagedftest<- cbind(imagedftest, camcolfix)
+imagedftest$cam <- NULL
+names(imagedftest) <- c("folderdate", "FileName", "DateTimeOriginal", "cam")
+
+#####Convert folderdate to date format
+imagedftest$folderdate <- dmy(imagedftest$folderdate)
+
+#####Rearrange data frame
+imagedftest <- imagedftest[, c("cam", "folderdate", "FileName", "DateTimeOriginal")]
+imagedftest <- arrange(imagedftest, cam, folderdate, FileName)
+
+##Build site data frame and prepare it
+sites <- read.csv("~/CISP/CamSites.csv", stringsAsFactors = F)
+
+###Merging install and removal dates and converting to date format
+sites$instdate <- as.Date(with(sites, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
+str(sites$instdate)
+
+sites$remdate <- as.Date(with(sites, paste(camrem_y, camrem_m, camrem_d,sep="-")), "%Y-%m-%d")
+str(sites$remdate)
+
+###Duplicating removal date column and filling NAs with cut off date
+sites$remdatefill <- sites$remdate
+
+sites$remdatefill[is.na(sites$remdatefill)] <- "2015-05-07"
+
+######Temporary Cheat
+names(imagedftest) <- c("cam", "instdate", "FileName", "DateTimeOriginal")
+imagedftest$remdatefill <- imagedftest$instdate
+
+##Attempting to set up a rolling join
+setDT(imagedftest) #set data.table x
+setDT(sites) #set data.table y
+setkey(sites, cam, instdate, remdatefill) #set a key with trap_id for match, and date range as last two variables
+test<-foverlaps(imagedftest, sites, type="within")
+test<-as.data.frame(test)
+str(test) #Check structure, note i.variables
+
+write.csv(test, "test")
 #Image Data Frame building code ----
 ##Initial image data frame list
 
