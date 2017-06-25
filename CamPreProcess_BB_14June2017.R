@@ -308,7 +308,7 @@ camcolfix$V1 <- NULL
 names(camcolfix) <- "camtest"
 imagedftest<- cbind(imagedftest, camcolfix)
 imagedftest$cam <- NULL
-#names(imagedftest) <- c("folderdate", "FileName", "DateTimeOriginal", "cam")
+names(imagedftest) <- c("FileName", "DateTimeOriginal", "folderdate",  "cam")
 
 #####Convert folderdate to date format
 imagedftest$folderdate <- dmy(imagedftest$folderdate)
@@ -319,7 +319,9 @@ imagedftest <- imagedftest[, c("cam", "folderdate", "FileName", "DateTimeOrigina
 imagedftest <- arrange(imagedftest, cam, folderdate, FileName)
 
 ##Build site data frame and prepare it
-sites <- read.csv("~/CISP/CamSites.csv", stringsAsFactors = F)
+sites <- read.csv("~/CISP/CamSites.csv")
+sites$cam <- as.factor(sites$cam)
+str(sites)
 
 ###Merging install and removal dates and converting to date format
 sites$instdate <- as.Date(with(sites, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
@@ -333,22 +335,53 @@ sites$remdatefill <- sites$remdate
 
 sites$remdatefill[is.na(sites$remdatefill)] <- "2015-05-07"
 
+###Clear some unneeded columns from site data frame for testing
+sites <- sites[, c("site", "cam", "northing", "easting", "instdate", "remdatefill")]
+
 ######Temporary Cheat
-names(imagedftest) <- c("cam", "instdate", "FileName", "DateTimeOriginal")
+names(imagedftest) <- c("cam", "instdate", "image", "imagedate")
 imagedftest$remdatefill <- imagedftest$instdate
 
 ##Attempting to set up a rolling join
 setDT(imagedftest) #set data.table x
 setDT(sites) #set data.table y
 setkey(sites, cam, instdate, remdatefill) #set a key with trap_id for match, and date range as last two variables
-test<-foverlaps(imagedftest, sites, type="within")
-test<-as.data.frame(test)
-str(test) #Check structure, note i.variables
+imagesite<-foverlaps(imagedftest, sites, type="within")
+imagesite<-as.data.frame(imagesite)
+str(imagesite) #Check structure, note i.variables
 
-write.csv(test, "test")
+#####write.csv(test, "test")
+####Above code correctly paired lines from both data frames
+#Creating folder start column
+##Renaming columns, clearing unnecessary, and reorganizing columns
+names(imagesite) <- c("cam", "site", "northing", "easting", "instdate", "remdate", "folderend", "image", "imagedate", "folderend2")
+imagesite <- imagesite[, c("site", "cam", "northing", "easting", "instdate", "remdate", "image", "imagedate", "folderend")] #####Okay to remove columns this way?
+str(imagesite)
+
 #Image Data Frame building code ----
 ##Initial image data frame list
+imagesite <- imagesite %>%
+  group_by(site) %>%
+  mutate(teststart = lag(folderend, 1)) %>%
+  data.frame()
+-----------------------------
+#2) create endpdate for trapsite range
+trapsite2<-trapsite2 %>% group_by(trap_id) %>% 
+  mutate(endpdate = lead(startpdate, 1)) %>% 
+  data.frame()
 
+#3) fill in NA in endpdate with last sampling date
+#For now, 1 Dec 2016 (it doesn't really matter, as long as after last sampling date)
+trapsite2<-trapsite2 %>%
+  mutate(endpdate = ifelse(is.na(endpdate),as.Date("2016-12-01"),endpdate)) %>%
+  mutate(endpdate = as.Date(.[,"endpdate"], origin = "1970-01-01")) %>% 
+  data.frame()
+
+#Check to see if date ranges worked!
+#Startdate/enddate are dates when traps were at specific coordinates
+#Traps changed positions, this shows between what dates
+ep<-data.frame(trapsite2$trap_id,trapsite2$startpdate,trapsite2$endpdate)
+---------------------------------------------------------
 ##Attaching exif data to images
 #Note: See "brook_thesiscodeall_6may2016.Rmd" for Ryan's code for this stuff, in case we decide we wish to utilise that.
 
@@ -735,6 +768,7 @@ test <- filter(imageexifdftestdir, DateTimeOriginal == "")
 
 #Create image data frame and attempt to join with site data frame
 ##Build image data frame again
+#####setwd("~/Dropbox/CISP")
 rm(list = ls())
 
 imagedftest <- (list.files("imagesin", full.names = T,recursive = T))
@@ -765,8 +799,8 @@ imagedftest <- imagedftest[, c("Directory", "FileName", "DateTimeOriginal")] ###
 
 ###Modify datetimeorignal to be posixct
 imagedftest$DateTimeOriginal<-ymd_hms(imagedftest$DateTimeOriginal, tz="America/Halifax")
-######Do we need to change file names? Do we need to reorder columns? Do we need to reorder rows?
-#####Split directory into camera and folder date and add back in
+
+####Split directory into camera and folder date and add back in
 imagedftestfolder <- as.data.frame(str_split_fixed(imagedftest$Directory, "/", 3))
 table(imagedftest$Directory)
 table(imagedftestfolder$V3) #####Check that the two columns match
@@ -778,7 +812,7 @@ imagedftest <- cbind(imagedftest, imagedftestfolderdate)
 imagedftest$Directory <- NULL
 
 
-#####Fix cam column
+####Fix cam column
 camcolfix <- as.data.frame(str_split_fixed(imagedftest$cam, "Camera", 2))
 camcolfix$V1 <- NULL
 names(camcolfix) <- "camtest"
@@ -786,7 +820,7 @@ imagedftest<- cbind(imagedftest, camcolfix)
 imagedftest$cam <- NULL
 names(imagedftest) <- c("FileName", "DateTimeOriginal","folderdate", "cam")
 
-#####Convert folderdate to date format
+####Convert folderdate to date format
 imagedftest$folderdate <- dmy(imagedftest$folderdate)
 str(imagedftest)
 
@@ -796,6 +830,8 @@ imagedftest <- arrange(imagedftest, cam, folderdate, FileName)
 
 ##Build site data frame and prepare it
 sites <- read.csv("~/CISP/CamSites.csv", stringsAsFactors = F)
+sites$cam<-as.factor(sites$cam)
+str(sites)
 
 ###Merging install and removal dates and converting to date format
 sites$instdate <- as.Date(with(sites, paste(inst_y, inst_m, inst_d,sep="-")), "%Y-%m-%d")
@@ -809,31 +845,40 @@ sites$remdatefill <- sites$remdate
 
 sites$remdatefill[is.na(sites$remdatefill)] <- "2015-05-07"
 
-sites$cam<-as.factor(sites$cam)
+###Simplifications to sites data frame for testing
+sites2 <- arrange(sites, site, cam, instdate) %>%
+  data.frame()
+sites2 <- sites2 [, c("site", "cam", "location", "purpose", "streamside", "instdate", "remdatefill")]
 
-######Temporary Cheat
-names(imagedftest) <- c("cam", "instdate", "FileName", "DateTimeOriginal")
+###Mirror date range columns from sites data frame for image data frame
+imagedftest$instdate <- imagedftest$folderdate
 imagedftest$remdatefill <- imagedftest$instdate
-imagedftest$cam<-as.factor(imagedftest$cam)
 str(imagedftest)
 
-#ta
-#1) reorder trapsite by trap_id then date
-#str(sites2)
-#names(sites2)
-#sites2<-arrange(sites,cam,instdate) %>% data.frame()  #Arranges by trap_id and pdate
-#sites2$cam<-as.factor(sites2$cam)
-#sites2<-sites2[,c(1,2,41,43)]
-
-##Attempting to set up a rolling join
+##Attempting to set up a rolling join (Ensure camera columns are factors!)
 setDT(imagedftest) #set data.table x
-setDT(sites) #set data.table y
-setkey(sites, cam, instdate, remdatefill) #set a key with trap_id for match, and date range as last two variables
-test<-foverlaps(imagedftest, sites, by.x=c("cam","instdate","remdatefill"),by.y=c("cam","instdate","remdatefill"))
+setDT(sites2) #set data.table y
+setkey(sites2, cam, instdate, remdatefill) #set a key with trap_id for match, and date range as last two variables
+test<-foverlaps(imagedftest, sites2, type = "within")
 test<-as.data.frame(test)
 str(test) #Check structure, note i.variables
 
+test$i.instdate <- NULL
+test$i.remdatefill <- NULL
+
 write.csv(test, "test")
+
+testl <- test %>%
+  group_by(site, folderdate) %>%
+  summarise(NROW(site)) %>%
+  data.frame()
+
+test2 <- left_join(test, testl)
+
+test3 <- test2 %>% 
+  group_by(site, folderdate) %>% 
+  mutate(testdate = lag(folderdate, n = test3$NROW.site.)) %>% 
+  data.frame()
 
 #
 test2<-test[-(1:335),]
