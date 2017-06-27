@@ -336,9 +336,6 @@ sites$remdatefill <- sites$remdate
 
 sites$remdatefill[is.na(sites$remdatefill)] <- "2015-05-07"
 
-###Clear some unneeded columns from site data frame for testing
-sites <- sites[, c("site", "cam", "northing", "easting", "instdate", "remdatefill")]
-
 ###Simplifications to sites data frame for testing
 sites2 <- arrange(sites, site, cam, instdate) %>%
   data.frame()
@@ -353,26 +350,84 @@ str(imagedftest)
 setDT(imagedftest) #set data.table x
 setDT(sites2) #set data.table y
 setkey(sites2, cam, instdate, remdatefill) #set a key with trap_id for match, and date range as last two variables
-test<-foverlaps(imagedftest, sites2, type = "within")
-test<-as.data.frame(test)
-str(test) #Check structure, note i.variables
+imagedftest<-foverlaps(imagedftest, sites2, type = "within")
+imagedftest<-as.data.frame(imagedftest)
+str(imagedftest) #Check structure, note i.variables
 
-test$i.instdate <- NULL
-test$i.remdatefill <- NULL
+imagedftest$i.instdate <- NULL
+imagedftest$i.remdatefill <- NULL
 
-write.csv(test, "test")
+write.csv(imagedftest, "test")
+
+#Tests to create folderend and folderstart dates
+imagedftest$folderend <- imagedftest$folderdate
+
+test <- imagedftest %>%
+  group_by(site) %>%
+  distinct(folderdate) %>%
+  data.frame()
+
+test2 <- test %>%
+  group_by(site) %>%
+  mutate(folderstart = lag(folderdate, n=1 )) %>%
+  data.frame()
 
 testl <- test %>%
   group_by(site, folderdate) %>%
   summarise(NROW(site)) %>%
   data.frame()
 
-test2 <- left_join(test, testl)
+test3 <- left_join(imagedftest, test2)
 
 test3 <- test2 %>% 
   group_by(site, folderdate) %>% 
   mutate(testdate = lag(folderdate, n = test3$NROW.site.)) %>% 
   data.frame()
+
+###Test where folder start would be before instdate
+test <- read.csv("folderstartsample.csv")
+
+test$instdate <- mdy(test$instdate)
+test$remdatefill <- mdy(test$remdatefill)
+test$folderdateend <- mdy(test$folderdateend)
+
+str(test)
+
+test1 <- test %>%
+  group_by(site) %>%
+  distinct(folderdateend) %>%
+  data.frame()
+
+test2 <- test1 %>%
+  group_by(site) %>%
+  mutate(folderstart = lag(folderdateend)) %>%
+  data.frame()
+
+test3 <- left_join(test, test2)
+
+#####fill NAs
+test4 <- test3 %>%
+  group_by(site) %>%
+  mutate(folderstart = ifelse(is.na(folderstart), instdate, folderstart)) %>%
+  mutate(folderstart = as.Date(folderstart, origin = "1970-01-01")) %>%
+  data.frame()
+
+test5 <- test4 %>%
+  group_by(site) %>%
+  mutate(folderstarttest = ifelse(folderstart < instdate, instdate, folderstart)) %>%
+  mutate(folderstarttest = as.Date(folderstarttest, origin = "1970-01-01")) %>%
+  data.frame()
+
+###Test if can detect instances where date range is wrong
+foldrange <- test4[, c("cam", "site", "FileName", "folderdateend", "folderstart")]
+names(foldrange) <- c("cam", "site", "FileName", "remdatefill", "instdate")
+
+setDT(foldrange) #set data.table x
+setDT(test4) #set data.table y
+setkey(test4, site, instdate, remdatefill) #set a key with trap_id for match, and date range as last two variables
+temp<-foverlaps(foldrange, test4, type = "within")
+temp<-as.data.frame(temp)
+str(temp) #Check structure, note i.variables
 
 #Temp test
 #test4 <- test2
